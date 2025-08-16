@@ -1,6 +1,9 @@
 import environ
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Initialize environment variables
 env = environ.Env(
@@ -136,6 +139,20 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
+
+# Chapa Configuration
+CHAPA_SECRET_KEY = os.getenv('CHAPA_SECRET_KEY')
+CHAPA_PUBLIC_KEY = os.getenv('CHAPA_PUBLIC_KEY')
+CHAPA_BASE_URL = os.getenv('CHAPA_BASE_URL', 'https://api.chapa.co/v1')
+CHAPA_WEBHOOK_SECRET = os.getenv('CHAPA_WEBHOOK_SECRET')
+
+# Email Configuration
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 
 CORS_ALLOW_CREDENTIALS = True
 

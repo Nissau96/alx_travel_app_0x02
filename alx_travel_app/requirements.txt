@@ -136,3 +136,7 @@ webcolors==24.11.1
 webencodings==0.5.1
 websocket-client==1.8.0
 wheel==0.45.1
+requests==2.31.0
+celery==5.3.4
+redis==5.0.1
+python-dotenv==1.0.0
