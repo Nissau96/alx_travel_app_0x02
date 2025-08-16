@@ -9,11 +9,14 @@ from rest_framework import status
 from rest_framework import viewsets
 from .models import Listing, Booking, Payment
 from .serializers import ListingSerializer, BookingSerializer
+from .tasks import send_confirmation_email_task
+
 
 
 # Chapa API Configuration
 CHAPA_API_URL = "https://api.chapa.co/v1/transaction/initialize"
 CHAPA_SECRET_KEY = os.getenv("CHAPA_SECRET_KEY")
+CHAPA_VERIFY_URL = "https://api.chapa.co/v1/transaction/verify/"
 
 class ListingViewSet(viewsets.ModelViewSet):
     """
@@ -97,3 +100,42 @@ class InitiatePaymentView(APIView):
             payment.status = Payment.PaymentStatus.FAILED
             payment.save()
             return Response({"error": f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+class VerifyPaymentView(APIView):
+    """
+    API endpoint to verify a payment with Chapa using the transaction reference.
+    This can be used as a callback URL or called by the frontend.
+    """
+    def get(self, request, tx_ref, *args, **kwargs):
+        try:
+            payment = get_object_or_404(Payment, tx_ref=tx_ref)
+        except Payment.DoesNotExist:
+            return Response({"error": "Payment not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        headers = {
+            "Authorization": f"Bearer {CHAPA_SECRET_KEY}",
+        }
+
+        try:
+            response = requests.get(f"{CHAPA_VERIFY_URL}{tx_ref}", headers=headers)
+            response.raise_for_status()
+            chapa_response = response.json()
+
+            if chapa_response.get("status") == "success":
+                # Payment was successful
+                payment.status = Payment.PaymentStatus.COMPLETED
+                payment.save()
+
+                # Trigger background task to send confirmation email
+                send_confirmation_email_task.delay(payment.id)
+
+                return Response({"message": "Payment verified successfully."}, status=status.HTTP_200_OK)
+            else:
+                # Payment failed or is still pending
+                payment.status = Payment.PaymentStatus.FAILED
+                payment.save()
+                return Response({"error": "Payment verification failed.", "details": chapa_response}, status=status.HTTP_400_BAD_REQUEST)
+
+        except requests.exceptions.RequestException as e:
+            return Response({"error": f"An error occurred during verification: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
